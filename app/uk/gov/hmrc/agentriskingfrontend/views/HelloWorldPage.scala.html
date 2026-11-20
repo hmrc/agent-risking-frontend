@@ -14,13 +14,28 @@
  * limitations under the License.
  *@
 
-@this(layout: Layout)
+@import uk.gov.hmrc.agentriskingfrontend.util.RequestSupport.isSignedIn
+
+@this(
+  layout: Layout,
+  govukButton: GovukButton
+)
 
 @()(implicit request: RequestHeader, messages: Messages)
 
-@layout(pageTitle = Some("agent-risking-frontend")) {
-    <h1 class="govuk-heading-xl">agent-risking-frontend</h1>
-    <p class="govuk-body">@{messages("service.text")}</p>
+@layout(pageTitle = "Agent risking frontend") {
+  <h1 class="govuk-heading-l">Agent risking frontend</h1>
+  @if(isSignedIn) {
+    <p class="govuk-body">You are signed in as an ASA agent.</p>
+  } else {
+    <p class="govuk-body">You can test signing in as an ASA agent.</p>
+    <p class="govuk-body">
+      @govukButton(Button(
+        content = Text("Test signing in"),
+        href = Some(AppRoutes.StartController.anySignedInPage.url)
+      ))
+    </p>
+  }
 }
 
 @{

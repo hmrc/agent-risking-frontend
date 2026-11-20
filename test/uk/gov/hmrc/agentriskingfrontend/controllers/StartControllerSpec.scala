@@ -25,7 +25,7 @@ import play.api.test.FakeRequest
 import play.api.test.Helpers._
 import play.api.inject.guice.GuiceApplicationBuilder
 
-class HelloWorldControllerSpec
+class StartControllerSpec
 extends AnyWordSpec
 with Matchers
 with GuiceOneAppPerSuite:
@@ -34,14 +34,14 @@ with GuiceOneAppPerSuite:
     .build()
 
   private val fakeRequest = FakeRequest("GET", "/")
-  private val controller = app.injector.instanceOf[HelloWorldController]
+  private val controller = app.injector.instanceOf[StartController]
 
   "GET /" should:
     "return 200" in:
-      val result = controller.helloWorld(fakeRequest)
+      val result = controller.landing(fakeRequest)
       status(result) shouldBe Status.OK
 
     "return HTML" in:
-      val result = controller.helloWorld(fakeRequest)
+      val result = controller.landing(fakeRequest)
       contentType(result) shouldBe Some("text/html")
       charset(result) shouldBe Some("utf-8")

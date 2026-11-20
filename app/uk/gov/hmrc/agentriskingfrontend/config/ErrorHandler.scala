@@ -41,7 +41,6 @@ extends FrontendErrorHandler:
     heading: String,
     message: String
   )(implicit request: RequestHeader): Future[Html] = Future.successful(errorTemplate(
-    pageTitle,
     heading,
     message
   ))
