@@ -1,2 +1,20 @@
 service.name = agent-risking-frontend
 service.text = This is your new service
+
+# Signed out
+signedOut.title = You have signed out
+signedOut.link = Sign in again
+
+# Timed out
+timed-out.header = You have been signed out
+timed-out.p1 = You have not done anything for 15 minutes, so we have signed you out to keep your account secure.
+timed-out.link = Sign in again
+
+# Error messages
+wrongCredentialRole.heading = You do not have the correct type of credentials to access this service
+wrongCredentialRole.message = You need to sign in with an account that has administrative rights to access this service.
+notFound.heading = The page could not be found
+notFound.message = The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+unauthorised.heading = You are not authorised to access this service
+missingEnrolment.heading = You do not have the correct enrolment to access this service
+missingEnrolment.message = You need to sign in with an account that has been enrolled for an Agent Services account to access this service.
