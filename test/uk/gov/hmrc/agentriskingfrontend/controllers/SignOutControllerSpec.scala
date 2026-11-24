@@ -29,15 +29,16 @@ extends ControllerSpec:
 
   private val signOutWithContinuePath = "/agent-update-information/sign-out-with-continue"
   private val signOutPath = "/agent-update-information/sign-out"
+  private val signedOutPath = "/agent-update-information/signed-out"
   private val timeOutPath = "/agent-update-information/time-out"
-  private val timedOutUrl = AppRoutes.SignOutController.timedOut(signBackInUrl = RedirectUrl(AppRoutes.StartController.landing.url)).url
+  private val timedOutUrl = AppRoutes.SignOutController.timedOut(signBackInUrl = RedirectUrl(thisFrontendBaseUrl + AppRoutes.StartController.landing.url)).url
   private val landingUrl = AppRoutes.StartController.landing.url
 
   private def signOutWithContinue(continue: String): String = s"$signOutWithContinuePath?continueUrl=${URLEncoder.encode(continue, "UTF-8")}"
 
   "GET /sign-out" in:
     val response: WSResponse = get(signOutPath)
-    val expectedContinueUrl = uri"${thisFrontendBaseUrl + landingUrl}"
+    val expectedContinueUrl = uri"${thisFrontendBaseUrl + signedOutPath + "?signBackInUrl=" + thisFrontendBaseUrl + landingUrl}"
     response.status shouldBe Status.SEE_OTHER
     response.body[String] shouldBe ""
     response.header(
@@ -46,7 +47,7 @@ extends ControllerSpec:
 
   "GET /time-out" in:
     val expectedContinueUrl = uri"${thisFrontendBaseUrl + timedOutUrl}"
-    val response: WSResponse = get(timeOutPath)
+    val response: WSResponse = get(timeOutPath + "?signBackInUrl=" + URLEncoder.encode(thisFrontendBaseUrl + landingUrl, "UTF-8"))
 
     response.status shouldBe Status.SEE_OTHER
     response.body[String] shouldBe ""
