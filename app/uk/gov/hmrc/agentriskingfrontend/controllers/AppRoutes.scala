@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 HM Revenue & Customs
+ * Copyright 2026 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,12 @@ package uk.gov.hmrc.agentriskingfrontend.controllers
 // scalafix:off DisableSyntax
 
 import uk.gov.hmrc.agentriskingfrontend.controllers.routes as rootRoutes
+import uk.gov.hmrc.agentriskingfrontend.controllers.agent.routes as agentRoutes
 
 object AppRoutes:
 
-  val HelloWorldController: ReverseHelloWorldController = rootRoutes.HelloWorldController
+  val StartController: ReverseStartController = rootRoutes.StartController
+  val SignOutController: ReverseSignOutController = rootRoutes.SignOutController
+
+  object agent:
+    val SaveForLaterController = agentRoutes.SaveForLaterController

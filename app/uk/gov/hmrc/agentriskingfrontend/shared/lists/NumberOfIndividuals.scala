@@ -1,0 +1,168 @@
+/*
+ * Copyright 2025 HM Revenue & Customs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package uk.gov.hmrc.agentriskingfrontend.shared.lists
+
+import play.api.libs.json.Format
+import play.api.libs.json.Json
+import play.api.libs.json.JsonConfiguration
+import uk.gov.hmrc.agentriskingfrontend.shared.util.Errors.getOrThrowExpectedDataMissing
+import uk.gov.hmrc.agentriskingfrontend.shared.util.JsonConfig
+import uk.gov.hmrc.agentriskingfrontend.shared.util.SafeEquals.===
+
+sealed trait NumberOfIndividuals
+
+// =======================================================
+// Required Key Individuals
+// =======================================================
+sealed trait NumberOfPartners
+extends NumberOfIndividuals:
+
+  def isValid: Boolean
+  def totalListSize: Int
+  def numberOfIndividuals: Int
+
+/** When there less or equal 5, the Applicant has to declare the exact number of all key individuals (partners, directors, owners, etc) */
+final case class FiveOrLess(
+  numberOfKeyIndividuals: Int
+)
+extends NumberOfPartners:
+
+  override def isValid: Boolean = numberOfKeyIndividuals <= 5
+  override def totalListSize: Int = numberOfKeyIndividuals
+
+  override def numberOfIndividuals: Int = totalListSize
+
+/** When there are more than 5, the Applicant has to declare how many of those are responsible for tax matters */
+final case class SixOrMore(
+  numberOfKeyIndividualsResponsibleForTaxMatters: Option[Int] = None
+)
+extends NumberOfPartners:
+
+  override def isValid: Boolean = numberOfKeyIndividualsResponsibleForTaxMatters.exists(n => n >= 1 && n <= 30)
+
+  def getNumberOfPartnersResponsibleForTaxMatters: Int = numberOfKeyIndividualsResponsibleForTaxMatters.getOrThrowExpectedDataMissing(
+    "Number of partners responsible for tax matters is missing from SixOrMore"
+  )
+
+  def requiredPadding: Int = Math.max(0, 5 - getNumberOfPartnersResponsibleForTaxMatters)
+
+  override def totalListSize: Int = getNumberOfPartnersResponsibleForTaxMatters + requiredPadding
+
+  override def numberOfIndividuals: Int = getNumberOfPartnersResponsibleForTaxMatters
+
+object NumberOfPartners:
+
+  def isPartnersListComplete(
+    listSize: Int,
+    numberOfPartners: NumberOfPartners
+  ): Boolean =
+    numberOfPartners match
+      case FiveOrLess(a) => listSize === a
+      case a @ SixOrMore(Some(_)) => listSize === a.totalListSize
+      case _ => false
+
+  given Format[NumberOfPartners] =
+    given Format[FiveOrLess] = Json.format[FiveOrLess]
+    given Format[SixOrMore] = Json.format[SixOrMore]
+
+    given JsonConfiguration = JsonConfig.jsonConfiguration
+    Json.format[NumberOfPartners]
+
+// =======================================================
+// Companies House Officers
+// =======================================================
+sealed trait NumberOfCompaniesHouseOfficers
+extends NumberOfIndividuals:
+
+  def numberOfCompaniesHouseOfficers: Int
+  def isValid: Boolean
+  def totalListSize: Int
+
+  def numberOfIndividuals: Int
+
+/** When there less or equal 5, the Applicant has to declare the exact number of all key individuals (partners, directors, owners, etc) */
+final case class FiveOrLessOfficers(
+  override val numberOfCompaniesHouseOfficers: Int,
+  isCompaniesHouseOfficersListCorrect: Boolean
+)
+extends NumberOfCompaniesHouseOfficers:
+
+  override def isValid: Boolean = numberOfCompaniesHouseOfficers <= 5
+  override def totalListSize: Int = numberOfCompaniesHouseOfficers
+  override def numberOfIndividuals: Int = totalListSize
+
+/** When there are more than 5, the Applicant has to declare how many of those are responsible for tax matters */
+final case class SixOrMoreOfficers(
+  override val numberOfCompaniesHouseOfficers: Int,
+  numberOfOfficersResponsibleForTaxMatters: Int
+)
+extends NumberOfCompaniesHouseOfficers:
+
+  override def isValid: Boolean = numberOfOfficersResponsibleForTaxMatters >= 1 && numberOfOfficersResponsibleForTaxMatters <= numberOfCompaniesHouseOfficers
+
+  override def totalListSize: Int = numberOfOfficersResponsibleForTaxMatters + requiredPadding
+
+  def requiredPadding: Int = Math.max(0, 5 - numberOfOfficersResponsibleForTaxMatters)
+
+  override def numberOfIndividuals: Int = numberOfOfficersResponsibleForTaxMatters
+
+object NumberOfCompaniesHouseOfficers:
+
+  def isOfficersListComplete(
+    listSize: Int,
+    numberOfCompaniesHouseOfficers: NumberOfCompaniesHouseOfficers
+  ): Boolean =
+    numberOfCompaniesHouseOfficers match
+      case a @ FiveOrLessOfficers(_, b) => a.isValid && b
+      case a @ SixOrMoreOfficers(_, _) => a.isValid && listSize === a.totalListSize
+
+  given Format[NumberOfCompaniesHouseOfficers] =
+    given Format[FiveOrLessOfficers] = Json.format[FiveOrLessOfficers]
+    given Format[SixOrMoreOfficers] = Json.format[SixOrMoreOfficers]
+
+    given JsonConfiguration = JsonConfig.jsonConfiguration
+    Json.format[NumberOfCompaniesHouseOfficers]
+
+// =======================================================
+// NumberOfIndividuals helpers + format
+// =======================================================
+object NumberOfIndividuals:
+
+  def isKeyIndividualListComplete(
+    listSize: Int,
+    numberOfIndividuals: Option[NumberOfIndividuals]
+  ): Boolean =
+    numberOfIndividuals match
+      case Some(a: NumberOfPartners) => NumberOfPartners.isPartnersListComplete(listSize, a)
+      case Some(a: NumberOfCompaniesHouseOfficers) => NumberOfCompaniesHouseOfficers.isOfficersListComplete(listSize, a)
+      case None => false
+
+  given Format[NumberOfIndividuals] =
+    given JsonConfiguration = JsonConfig.jsonConfiguration
+
+    // Leaf ADT formats must be in scope for the parent macro derivation:
+    given Format[FiveOrLess] = Json.format[FiveOrLess]
+    given Format[SixOrMore] = Json.format[SixOrMore]
+    given Format[FiveOrLessOfficers] = Json.format[FiveOrLessOfficers]
+    given Format[SixOrMoreOfficers] = Json.format[SixOrMoreOfficers]
+
+//    // Intermediate ADTs:
+//    given Format[NumberOfRequiredKeyIndividuals] = Json.format[NumberOfRequiredKeyIndividuals]
+//    given Format[NumberOfCompaniesHouseOfficers] = Json.format[NumberOfCompaniesHouseOfficers]
+
+    // Parent:
+    Json.format[NumberOfIndividuals]

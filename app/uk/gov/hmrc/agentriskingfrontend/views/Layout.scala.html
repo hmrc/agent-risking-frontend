@@ -15,23 +15,114 @@
  *@
 
 @import uk.gov.hmrc.agentriskingfrontend.config.AppConfig
-@import uk.gov.hmrc.hmrcfrontend.views.html.helpers.HmrcStandardPage
-@import uk.gov.hmrc.hmrcfrontend.views.viewmodels.hmrcstandardpage.HmrcStandardPageParams
+@import uk.gov.hmrc.agentriskingfrontend.util.RequestSupport.isSignedIn
+@import uk.gov.hmrc.hmrcfrontend.views.html.helpers._
+@import uk.gov.hmrc.hmrcfrontend.views.viewmodels.hmrcstandardpage._
+@import uk.gov.hmrc.hmrcfrontend.views.Implicits.RichErrorSummary
+@import uk.gov.hmrc.govukfrontend.views.html.components._
+@import uk.gov.hmrc.govukfrontend.views.Implicits.RichServiceNavigation
+@import views.html.helper.CSPNonce
+@import uk.gov.hmrc.play.bootstrap.binders.RedirectUrl
 
 @this(
   appConfig: AppConfig,
-  hmrcStandardPage: HmrcStandardPage
+  hmrcStandardPage: HmrcStandardPage,
+  hmrcReportTechnicalIssueHelper: HmrcReportTechnicalIssueHelper,
+  hmrcTimeoutDialogHelper: HmrcTimeoutDialogHelper,
+  govukErrorSummary: GovukErrorSummary,
+  autocompleteCss: HmrcAccessibleAutocompleteCss,
+  autocompleteJavascript: HmrcAccessibleAutocompleteJavascript,
+  govukServiceNavigation: GovukServiceNavigation
 )
 
-@(pageTitle: Option[String] = None)(contentBlock: Html)(implicit request: RequestHeader, messages: Messages)
+@(
+  pageTitle: String,
+  maybeForm: Option[Form[?]] = None,
+  suppressBackLink: Boolean = false,
+  templateScripts: Option[Html] = None,
+  templateStyles: Option[Html] = None,
+  serviceName: Option[String] = None,
+  banners: Option[Banners] = None,
+  suppressReportTechnicalIssue: Boolean = false,
+  mainContentLayout: Option[Html => Html] = None)(
+  contentBlock: Html)(implicit
+  request: RequestHeader,
+  messages: Messages
+)
+
+@signOutUrl = @{AppRoutes.SignOutController.signOut(Some(RedirectUrl(s"${appConfig.thisFrontendBaseUrl}${request.uri}"))).url}
+
+@head = {
+  @if(isSignedIn) {
+    @hmrcTimeoutDialogHelper(
+      signOutUrl = signOutUrl,
+      timeoutUrl = Some(
+        AppRoutes.SignOutController.timeOut(
+          signBackInUrl = RedirectUrl(s"${appConfig.thisFrontendBaseUrl}${request.uri}")
+        ).url)
+    )
+  }
+  @autocompleteCss()
+  @templateStyles.getOrElse(Html(""))
+}
+@additionalScripts = {
+  @autocompleteJavascript()
+  @templateScripts.getOrElse(Html(""))
+}
+@errorPrefix = @{if(maybeForm.exists(_.hasErrors)) s"${messages("common.errorPrefix")}: " else ""}
+@gdsTitle = @{s"$errorPrefix$pageTitle - ${messages("service.name")} - GOV.UK"}
+@contentWithErrorsAndHelp = {
+  @maybeForm.map { form =>
+    @if(form.hasErrors) {
+      @govukErrorSummary(ErrorSummary(
+        title = Text(messages("error.summary.title")),
+        errorList = form.errors
+          .groupBy(_.key.split("\\.").head) // avoid rendering multiple errors on multi-input date fieldsets by grouping by first part of key e.g. dateOfBirth.day, dateOfBirth.month, dateOfBirth.year will be grouped by dateOfBirth
+          .values
+          .flatMap(_.headOption)
+          .map { error =>
+            ErrorLink(
+              href = if(appConfig.accessibleDateFields.contains(error.key)) Some(s"#${error.key}.day") else Some(s"#${error.key}"),
+              content = Text(messages(error.message, error.args *))
+            )
+          }.toSeq.reverse
+      ))
+    }
+  }
+  @contentBlock
+  @if(!suppressReportTechnicalIssue) {
+    @hmrcReportTechnicalIssueHelper()
+  }
+}
+
+@serviceNavigation = @{
+  ServiceNavigation(
+    serviceName = Some(serviceName.getOrElse(messages("service.name"))),
+    serviceUrl = None
+  )
+}
+
+@toggledServiceNavigation = @{
+  if(appConfig.WelshLanguageSupport.enabled) {
+    serviceNavigation.withLanguageToggle()
+  } else {
+    serviceNavigation
+  }
+}
 
 @hmrcStandardPage(
   HmrcStandardPageParams(
-    pageTitle = pageTitle,
-    isWelshTranslationAvailable = appConfig.welshLanguageSupportEnabled
+    pageTitle = Some(gdsTitle),
+    serviceURLs = ServiceURLs(
+      signOutUrl = if (isSignedIn) Some(signOutUrl) else None
+    ),
+    serviceNavigation = Some(toggledServiceNavigation),
+    templateOverrides = TemplateOverrides(
+      additionalHeadBlock = Some(head),
+      additionalScriptsBlock = Some(additionalScripts),
+      mainContentLayout = mainContentLayout
+    ),
+    backLink = if(suppressBackLink) None else Some(BackLink.mimicsBrowserBackButtonViaJavaScript),
+    isWelshTranslationAvailable = appConfig.WelshLanguageSupport.enabled
   )
-)(contentBlock)
-
-@{
-    //$COVERAGE-OFF$
-}
+)(contentWithErrorsAndHelp)
